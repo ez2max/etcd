@@ -24,7 +24,6 @@ import (
 	"net/url"
 	"os"
 	"runtime"
-	"sort"
 	"strings"
 
 	"go.etcd.io/etcd/embed"
@@ -242,6 +241,9 @@ func newConfig() *config {
 	fs.StringVar(&cfg.ec.AuthToken, "auth-token", cfg.ec.AuthToken, "Specify auth token specific options.")
 	fs.UintVar(&cfg.ec.BcryptCost, "bcrypt-cost", cfg.ec.BcryptCost, "Specify bcrypt algorithm cost factor for auth password hashing.")
 
+	// gateway
+	fs.BoolVar(&cfg.ec.EnableGRPCGateway, "enable-grpc-gateway", true, "Enable GRPC gateway.")
+
 	// experimental
 	fs.BoolVar(&cfg.ec.ExperimentalInitialCorruptCheck, "experimental-initial-corrupt-check", cfg.ec.ExperimentalInitialCorruptCheck, "Enable to check data corruption before serving any client/peer traffic.")
 	fs.DurationVar(&cfg.ec.ExperimentalCorruptCheckTime, "experimental-corrupt-check-time", cfg.ec.ExperimentalCorruptCheckTime, "Duration of time between cluster corruption check passes.")
@@ -284,7 +286,7 @@ func (cfg *config) parse(arguments []string) error {
 		err = cfg.configFromFile(cfg.configFile)
 		if lg := cfg.ec.GetLogger(); lg != nil {
 			lg.Info(
-				"loaded server configuraionl, other configuration command line flags and environment variables will be ignored if provided",
+				"loaded server configuration, other configuration command line flags and environment variables will be ignored if provided",
 				zap.String("path", cfg.configFile),
 			)
 		} else {
@@ -315,21 +317,8 @@ func (cfg *config) configFromCmdLine() error {
 	cfg.ec.CipherSuites = flags.StringsFromFlag(cfg.cf.flagSet, "cipher-suites")
 
 	// TODO: remove this in v3.5
-	output := flags.UniqueStringsMapFromFlag(cfg.cf.flagSet, "log-output")
-	oss1 := make([]string, 0, len(output))
-	for v := range output {
-		oss1 = append(oss1, v)
-	}
-	sort.Strings(oss1)
-	cfg.ec.DeprecatedLogOutput = oss1
-
-	outputs := flags.UniqueStringsMapFromFlag(cfg.cf.flagSet, "log-outputs")
-	oss2 := make([]string, 0, len(outputs))
-	for v := range outputs {
-		oss2 = append(oss2, v)
-	}
-	sort.Strings(oss2)
-	cfg.ec.LogOutputs = oss2
+	cfg.ec.DeprecatedLogOutput = flags.UniqueStringsFromFlag(cfg.cf.flagSet, "log-output")
+	cfg.ec.LogOutputs = flags.UniqueStringsFromFlag(cfg.cf.flagSet, "log-outputs")
 
 	cfg.ec.ClusterState = cfg.cf.clusterState.String()
 	cfg.cp.Fallback = cfg.cf.fallback.String()
